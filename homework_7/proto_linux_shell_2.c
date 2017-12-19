@@ -1,0 +1,208 @@
+#include <sys/wait.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
+#define LSH_RL_BUFSIZE 1024
+
+/* Function Declarations for builtin shell commands */
+int cd(char  **args);
+int help(char **args);
+int exit(char **args);
+
+/* List of builtin commands, followed by their corresponding functions */
+char *command_list[] = {
+  "cd",
+  "help",
+  "exit"
+};
+
+int (*builtin[]) (char **) =
+{
+        &cd,
+        &help,
+        &exit
+};
+
+int builtin_num()
+{
+        return sizeof(command_list) / sizeof(char *);
+}
+
+int cd(char **args)
+{
+        if (args[1] == NULL)
+        {
+                fprintf(stderr, "Expected Argument To \"cd\": cd() #1\n");
+        } else
+        {
+                if (chdir(args[1]) != 0)
+                {
+                        perror("Error: cd() #2\n");
+                }
+        }
+
+        return 1;
+}
+
+int help(char **args)
+{
+        printf("Type program names and arguments, and hit enter.\n");
+        printf("THe following commands are built in:\n");
+
+	int i;
+        for (i = 0; i < num_builtins(); i++)
+        {
+                printf("\t%s\b", command_list[i]);
+        }
+
+        printf("Use the 'man' command for additional information.\n");
+        return 1;
+}
+
+/* function implementation of exit */
+int lsh_exit(char **args)
+{
+  return 0;
+}
+
+int launch(char **args)
+{
+        pid_t pid, wpid;
+        int status;
+
+        pid = fork();
+        if (pid == 0)
+        {
+                if (execvp(args[0], args) == -1)
+                {
+                        perror("Process Invalid: launch() #1\n");
+                }
+                exit(EXIT_FAILURE);
+        } else if (pid < 0)
+        {
+                perror("Process Invalid: launch() #2\n");
+        } else
+        {
+                do
+                {
+                        wpid = waitpid(pid, &status, WUNTRACED);
+                } while (!WIFEXITED(status) && !WIFSIGNALED(status));
+        }
+
+        return 1;
+}
+
+int execute(char **args)
+{
+        if (args[0] == NULL)
+        {
+                return 1;
+        }
+
+        int i;
+        for (i = 0; i < builtin_num(); i++)
+        {
+                if (strcmp(args[0], command_list[i]) == 0)
+                {
+                        return (*function[i])(args);
+                }
+        }
+
+        return launch(args);
+}
+
+char read(void)
+{
+        int buffersize = BUFFERSIZE;
+        int position = 0;
+        char *buffer = malloc(sizeof(char) * buffsize);
+        int tmp;
+
+  if (!buffer)
+        {
+                fprintf(stderr, "Out Of Memory: read() #1\n");
+                exit(EXIT_FAILURE);
+        }
+
+        while (true) {
+                tmp = getchar();
+
+                if ( tmp == EOF | tmp == '\n')
+                {
+                        buffer[position] = '\0';
+                        return buffer;
+                } else
+                {
+                        buffer[position] = tmp;
+                }
+                position++;
+
+                if (position >= BUFFERSIZE)
+                {
+                        buffersize += BUFFERSIZE;
+                        buffer = realloc(buffer, buffersize);
+                        if (!buffer)
+                        {
+                                fprintf(stderr, "Out Of Memory: read() #2\n");
+                                exit(EXIT_FAILURE);
+                        }
+                }
+        }
+}
+
+char **split(char *line)
+{
+        int buffersize = TOKEN_BUFFERSIZE;
+        int position = 0;
+        char **tokens = malloc(sizeof(char*) * buffersize);
+        char *token;
+
+        if(!tokens)
+        {
+                fprintf(stderr, "Out Of Memory: split() #1\n");
+                exit(EXIT_FAILURE);
+        }
+
+        token = strtok(line, "\t\r\n\a");
+        while (token != NULL)
+        {
+                tokens[position] = token;
+                position++;
+
+                if (position >= TOKEN_BUFFERSIZE)
+                {
+                        buffersize += TOKEN_BUFFERSIZE;
+                        tokens = realloc(tokens, buffersize * sizeof(char*));
+                        if (!tokens)
+                        {
+                                fprintf(stderr, "Out Of Memory: split() #2\n");
+                                exit(EXIT_FAILURE);
+                        }
+                }
+                token = strtok(NULL, "\t\r\n\a");
+        }
+        tokens[position] = NULL;
+        return tokens;
+}
+
+int main(int argc, char **argv)
+{
+	char *line;
+        char **argc;
+        int keepGoing;
+
+        do
+        {
+                printf("bgshell > ");
+                line = read();
+                args = split(line);
+                status = execute(args);
+
+                free(line));
+                free(args);
+        } while (keepGoing);
+
+  return EXIT_SUCCESS;
+}
